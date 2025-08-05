@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Chat Interface</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #3730a3;
+            --success-color: #10b981;
+            --success-hover: #059669;
+            --danger-color: #ef4444;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --border-color: #e5e7eb;
+            --message-user-bg: #4f46e5;
+            --message-ai-bg: #e5e7eb;
+            --sidebar-bg: #f8fafc;
+            --header-bg: #4f46e5;
+        }
+
+        [data-theme="dark"] {
+            --bg-primary: #1f2937;
+            --bg-secondary: #111827;
+            --bg-gradient: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --border-color: #374151;
+            --message-user-bg: #3b82f6;
+            --message-ai-bg: #374151;
+            --sidebar-bg: #111827;
+            --header-bg: #1f2937;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-gradient);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .app-container {
+            width: 95%;
+            max-width: 1200px;
+            height: 90vh;
+            background: var(--bg-primary);
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            display: flex;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-header {
+            background: var(--header-bg);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .model-selector {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .model-selector label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .model-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .model-select:focus {
+            border-color: var(--primary-color);
+            outline: none;
+        }
+
+        .chat-controls {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--success-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        .new-chat-btn:hover {
+            background: var(--success-hover);
+        }
+
+        .chat-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .chat-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chat-item:hover {
+            background: var(--bg-secondary);
+            border-color: var(--primary-color);
+        }
+
+        .chat-item.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .chat-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .chat-item-preview {
+            font-size: 0.9em;
+            opacity: 0.7;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .chat-item-date {
+            font-size: 0.8em;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+
+        .delete-chat {
+            float: right;
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: opacity 0.3s;
+        }
+
+        .delete-chat:hover {
+            opacity: 0.8;
+        }
+
+        .main-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-header {
+            background: var(--header-bg);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .chat-info {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .greeting-message {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .greeting-title {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .greeting-subtitle {
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .greeting-tips {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 600px;
+            border: 1px solid var(--border-color);
+        }
+
+        .greeting-tips h3 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .greeting-tips ul {
+            list-style: none;
+            text-align: left;
+        }
+
+        .greeting-tips li {
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .greeting-tips li:before {
+            content: "💡";
+            position: absolute;
+            left: 0;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+            transition: all 0.3s ease;
+        }
+
+        .user-message {
+            background: var(--message-user-bg);
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .ai-message {
+            background: var(--message-ai-bg);
+            color: var(--text-primary);
+            margin-right: auto;
+        }
+
+        .message-time {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        /* Markdown styling */
+        .message h1, .message h2, .message h3, .message h4, .message h5, .message h6 {
+            margin: 12px 0 8px 0;
+            font-weight: bold;
+            line-height: 1.3;
+        }
+
+        .message h1 { font-size: 1.5em; }
+        .message h2 { font-size: 1.3em; }
+        .message h3 { font-size: 1.1em; }
+        .message h4, .message h5, .message h6 { font-size: 1em; }
+
+        .message p {
+            margin: 8px 0;
+            line-height: 1.5;
+        }
+
+        .message ul, .message ol {
+            margin: 8px 0 8px 20px;
+            line-height: 1.5;
+        }
+
+        .message li {
+            margin: 4px 0;
+        }
+
+        .message blockquote {
+            border-left: 3px solid var(--border-color);
+            margin: 8px 0;
+            padding: 8px 0 8px 12px;
+            opacity: 0.8;
+            font-style: italic;
+        }
+
+        .message code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        [data-theme="dark"] .message code {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .message pre {
+            background: rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        [data-theme="dark"] .message pre {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .message pre code {
+            background: none;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        .message a {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        .message a:hover {
+            opacity: 0.8;
+        }
+
+        .message strong {
+            font-weight: bold;
+        }
+
+        .message em {
+            font-style: italic;
+        }
+
+        .message hr {
+            border: none;
+            border-top: 1px solid var(--border-color);
+            margin: 16px 0;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+            resize: none;
+            min-height: 20px;
+            max-height: 100px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .chat-input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .send-button {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+
+        .send-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 10px;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .typing-indicator {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 80%;
+            background: var(--message-ai-bg);
+            color: var(--text-primary);
+            margin-right: auto;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .typing-dots {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .typing-dots span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            animation: typingPulse 1.4s infinite ease-in-out;
+        }
+
+        .typing-dots span:nth-child(1) {
+            animation-delay: 0ms;
+        }
+
+        .typing-dots span:nth-child(2) {
+            animation-delay: 200ms;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 400ms;
+        }
+
+        @keyframes typingPulse {
+            0%, 60%, 100% {
+                opacity: 0.3;
+                transform: scale(1);
+            }
+            30% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .status.connected {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        [data-theme="dark"] .status.connected {
+            background: #064e3b;
+            color: #6ee7b7;
+        }
+
+        .status.error {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        [data-theme="dark"] .status.error {
+            background: #7f1d1d;
+            color: #fca5a5;
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+            .app-container {
+                width: 100%;
+                height: 100vh;
+                border-radius: 0;
+            }
+            
+            .sidebar {
+                width: 280px;
+            }
+            
+            .chat-messages {
+                padding: 15px;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
+            
+            .chat-input-container {
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .sidebar {
+                position: absolute;
+                left: -300px;
+                z-index: 100;
+                height: 100%;
+                transition: left 0.3s ease;
+            }
+            
+            .sidebar.open {
+                left: 0;
+            }
+            
+            .main-chat {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>🤖 Ollama Chat</span>
+                <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">🌓</button>
+            </div>
+            
+            <div class="model-selector">
+                <label for="modelSelect">Model:</label>
+                <select class="model-select" id="modelSelect">
+                    <option value="">Loading models...</option>
+                </select>
+            </div>
+            
+            <div class="chat-controls">
+                <button class="new-chat-btn" id="newChatBtn">+ New Chat</button>
+            </div>
+            
+            <div class="chat-history" id="chatHistory">
+                <!-- Chat history items will be populated here -->
+            </div>
+        </div>
+        
+        <div class="main-chat">
+            <div class="chat-header">
+                <div>
+                    <div class="chat-title" id="chatTitle">New Chat</div>
+                </div>
+                <div id="userProfile" style="display: none;">
+                    <!-- User profile will be added here -->
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <!-- Greeting will be shown for new chats -->
+            </div>
+            
+            <div class="loading" id="loading">
+                AI is thinking...
+            </div>
+            
+            <div class="chat-input-container">
+                <textarea 
+                    class="chat-input" 
+                    id="chatInput" 
+                    placeholder="Type your message here..."
+                    rows="1"
+                ></textarea>
+                <button class="send-button" id="sendButton">Send</button>
+            </div>
+            
+            <div class="status" id="status">
+                Status: Connecting...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Authentication and API management
+        const getApiUrl = () => {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            return `${protocol}//${hostname}:3001`;
+        };
+        const API_URL = getApiUrl();
+        
+        class AuthManager {
+            constructor() {
+                this.token = localStorage.getItem('ollama-token');
+                this.user = JSON.parse(localStorage.getItem('ollama-user') || 'null');
+            }
+            
+            isAuthenticated() {
+                return !!this.token && !!this.user;
+            }
+            
+            getHeaders() {
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                };
+            }
+            
+            logout() {
+                localStorage.removeItem('ollama-token');
+                localStorage.removeItem('ollama-user');
+                window.location.href = 'login.html';
+            }
+            
+            async checkAuth() {
+                if (!this.isAuthenticated()) {
+                    window.location.href = 'login.html';
+                    return false;
+                }
+                
+                try {
+                    const response = await fetch(`${API_URL}/api/profile`, {
+                        headers: this.getHeaders()
+                    });
+                    
+                    if (!response.ok) {
+                        this.logout();
+                        return false;
+                    }
+                    
+                    // Update user data with fresh profile information
+                    const profileData = await response.json();
+                    this.user = profileData.user; // API returns {user: {...}}
+                    localStorage.setItem('ollama-user', JSON.stringify(this.user));
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Auth check failed:', error);
+                    this.logout();
+                    return false;
+                }
+            }
+        }
+
+        class OllamaChat {
+            constructor() {
+                this.apiUrl = window.location.origin;
+                this.authManager = new AuthManager();
+                this.currentModel = '';
+                this.currentChatId = null;
+                this.chats = {};
+                this.models = [];
+                this.isNewChat = true;
+                
+                this.chatMessages = document.getElementById('chatMessages');
+                this.chatInput = document.getElementById('chatInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.loading = document.getElementById('loading');
+                this.status = document.getElementById('status');
+                this.modelSelect = document.getElementById('modelSelect');
+                this.newChatBtn = document.getElementById('newChatBtn');
+                this.chatHistory = document.getElementById('chatHistory');
+                this.chatTitle = document.getElementById('chatTitle');
+                this.themeToggle = document.getElementById('themeToggle');
+                
+                this.init();
+            }
+            
+            async init() {
+                console.log('Initializing chat app...');
+                console.log('Initial auth state:', this.authManager.isAuthenticated());
+                console.log('Initial user data:', this.authManager.user);
+                
+                // Check authentication first - redirect to login if not authenticated
+                if (!this.authManager.isAuthenticated()) {
+                    console.log('User not authenticated, redirecting to login');
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                // Verify authentication with server and refresh user data
+                const isAuthenticated = await this.authManager.checkAuth();
+                if (!isAuthenticated) return; // checkAuth already handles logout/redirect
+                
+                console.log('After auth check, user data:', this.authManager.user);
+                
+                // Setup theme after user data is refreshed
+                this.setupTheme();
+                this.setupEventListeners();
+                await this.loadModels();
+                await this.loadChats();
+                this.renderChatHistory();
+                this.createNewChat();
+                
+                // Add user profile controls
+                this.addUserProfile();
+            }
+            
+            addUserProfile() {
+                // Add profile section to chat header (top right)
+                const userProfile = document.getElementById('userProfile');
+                
+                // Check if user data is available
+                if (!this.authManager.user) {
+                    console.error('User data not available in addUserProfile');
+                    return;
+                }
+                
+                console.log('Adding user profile for:', this.authManager.user);
+                
+                userProfile.style.display = 'flex';
+                userProfile.style.cssText = `
+                    display: flex !important;
+                    align-items: center;
+                    gap: 15px;
+                    color: white;
+                    font-size: 0.9rem;
+                `;
+                
+                userProfile.innerHTML = `
+                    <div style="text-align: right;">
+                        <div style="font-weight: bold;">${this.authManager.user.username || 'Unknown'}</div>
+                        <div style="opacity: 0.8; font-size: 0.8rem;">${this.authManager.user.email || 'Unknown'}</div>
+                    </div>
+                    <button onclick="chat.authManager.logout()" 
+                            style="background: rgba(255,255,255,0.2); border: none; color: white; 
+                                   padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+                                   transition: background-color 0.3s;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.2)'"
+                            title="Sign Out">
+                        Sign Out
+                    </button>
+                `;
+            }
+            
+            setupTheme() {
+                // Load theme from user profile, fallback to localStorage, then default to light
+                let savedTheme = 'light'; // default
+                
+                if (this.authManager.user && this.authManager.user.theme_preference) {
+                    savedTheme = this.authManager.user.theme_preference;
+                    console.log('Using user theme preference:', savedTheme);
+                } else {
+                    savedTheme = localStorage.getItem('ollama-theme') || 'light';
+                    console.log('Using localStorage theme or default:', savedTheme);
+                }
+                
+                console.log('Applying theme:', savedTheme);
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                this.updateThemeToggle(savedTheme);
+            }
+            
+            async toggleTheme() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                
+                document.documentElement.setAttribute('data-theme', newTheme);
+                this.updateThemeToggle(newTheme);
+                
+                // Save theme to user profile
+                try {
+                    const response = await fetch(`${API_URL}/api/profile/theme`, {
+                        method: 'PATCH',
+                        headers: this.authManager.getHeaders(),
+                        body: JSON.stringify({ theme: newTheme })
+                    });
+                    
+                    if (response.ok) {
+                        this.authManager.user.theme_preference = newTheme;
+                        localStorage.setItem('ollama-user', JSON.stringify(this.authManager.user));
+                        console.log('Theme preference saved successfully:', newTheme);
+                    } else {
+                        const errorData = await response.json();
+                        console.error('Failed to save theme preference:', errorData);
+                        throw new Error('API request failed');
+                    }
+                } catch (error) {
+                    console.error('Failed to save theme preference:', error);
+                    // Fallback to localStorage
+                    localStorage.setItem('ollama-theme', newTheme);
+                }
+            }
+            
+            updateThemeToggle(theme) {
+                this.themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+                this.themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+            }
+            
+            setupEventListeners() {
+                this.sendButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.sendMessage();
+                });
+                this.chatInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+                
+                this.chatInput.addEventListener('input', () => {
+                    this.autoResizeTextarea();
+                });
+                
+                this.modelSelect.addEventListener('change', (e) => {
+                    this.currentModel = e.target.value;
+                    if (this.isNewChat) {
+                        this.showGreeting();
+                    }
+                });
+                
+                this.newChatBtn.addEventListener('click', () => this.createNewChat());
+                this.themeToggle.addEventListener('click', () => this.toggleTheme());
+            }
+            
+            autoResizeTextarea() {
+                this.chatInput.style.height = 'auto';
+                this.chatInput.style.height = Math.min(this.chatInput.scrollHeight, 100) + 'px';
+            }
+            
+            showGreeting() {
+                if (!this.currentModel || !this.isNewChat) return;
+                
+                this.chatMessages.innerHTML = `
+                    <div class="greeting-message">
+                        <div class="greeting-title">👋 Welcome!</div>
+                        <div class="greeting-subtitle">You're now chatting with <strong>${this.currentModel}</strong></div>
+                        <div class="greeting-tips">
+                            <h3>💡 Tips for better conversations:</h3>
+                            <ul>
+                                <li>Ask specific questions for more focused answers</li>
+                                <li>Break complex topics into smaller parts</li>
+                                <li>Feel free to ask for clarification or examples</li>
+                                <li>Use "Explain like I'm 5" for simple explanations</li>
+                                <li>Ask for step-by-step instructions when needed</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            async loadModels() {
+                try {
+                    const response = await fetch(`${this.apiUrl}/api/tags`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.models = data.models || [];
+                        this.populateModelSelect();
+                        this.updateStatus('Status: Connected', 'connected');
+                    } else {
+                        throw new Error('Failed to load models');
+                    }
+                } catch (error) {
+                    console.error('Error loading models:', error);
+                    this.updateStatus('Status: Not Connected', 'error');
+                    this.modelSelect.innerHTML = '<option value="">Connection Error</option>';
+                }
+            }
+            
+            async loadChats() {
+                try {
+                    console.log('Loading chats for user:', this.authManager.user);
+                    const response = await fetch(`${API_URL}/api/chats`, {
+                        headers: this.authManager.getHeaders()
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Chats API response:', data);
+                        // The API returns { chats: [...] }
+                        const chatsArray = data.chats || [];
+                        // Convert array to object format for compatibility
+                        this.chats = {};
+                        chatsArray.forEach(chat => {
+                            this.chats[chat.id] = {
+                                id: chat.id,
+                                name: chat.name,
+                                model: chat.model,
+                                messages: [], // Will be loaded when chat is opened
+                                lastMessage: chat.last_message, // Store last message for preview
+                                createdAt: chat.created_at,
+                                updatedAt: chat.updated_at
+                            };
+                        });
+                        console.log('Loaded chats:', this.chats);
+                    } else {
+                        console.error('Failed to load chats:', response.status);
+                        this.chats = {};
+                    }
+                } catch (error) {
+                    console.error('Error loading chats:', error);
+                    this.chats = {};
+                }
+            }
+            
+            populateModelSelect() {
+                this.modelSelect.innerHTML = '';
+                this.models.forEach((model, index) => {
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = model.name;
+                    this.modelSelect.appendChild(option);
+                });
+                
+                // Set default to first available model
+                if (this.models.length > 0) {
+                    this.currentModel = this.models[0].name;
+                    this.modelSelect.value = this.currentModel;
+                    if (this.isNewChat) {
+                        this.showGreeting();
+                    }
+                }
+            }
+            
+            formatSize(bytes) {
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                if (bytes === 0) return '0 B';
+                const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+            }
+            
+            createNewChat() {
+                // Don't create a new chat object yet, just prepare the UI
+                this.currentChatId = null;
+                this.isNewChat = true;
+                
+                this.chatTitle.textContent = 'New Chat';
+                this.clearMessages();
+                
+                // Show greeting if model is selected
+                if (this.currentModel) {
+                    this.showGreeting();
+                }
+                
+                this.renderChatHistory(); // Update highlighting
+            }
+            
+            loadChat(chatId) {
+                this.currentChatId = chatId;
+                this.isNewChat = false;
+                const chat = this.chats[chatId];
+                
+                if (chat) {
+                    this.chatTitle.textContent = chat.name;
+                    this.currentModel = chat.model;
+                    if (this.modelSelect.value !== chat.model) {
+                        this.modelSelect.value = chat.model;
+                    }
+                    
+                    this.clearMessages();
+                    
+                    // Load messages from API if not already loaded
+                    this.loadChatMessages(chatId);
+                }
+                
+                this.renderChatHistory();
+            }
+            
+            async loadChatMessages(chatId) {
+                try {
+                    console.log('Loading messages for chat:', chatId);
+                    const response = await fetch(`${API_URL}/api/chats/${chatId}`, {
+                        headers: this.authManager.getHeaders()
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Chat data with messages:', data);
+                        
+                        this.clearMessages();
+                        
+                        if (data.messages && data.messages.length > 0) {
+                            data.messages.forEach(msg => {
+                                this.displayMessage(msg.content, msg.sender, msg.timestamp, msg.model, msg.response_info);
+                            });
+                            
+                            // Update local chat object
+                            this.chats[chatId].messages = data.messages.map(msg => ({
+                                sender: msg.sender,
+                                content: msg.content,
+                                timestamp: msg.timestamp,
+                                model: msg.model,
+                                responseInfo: msg.response_info
+                            }));
+                        } else {
+                            console.log('No messages found for chat:', chatId);
+                        }
+                    } else {
+                        console.error('Failed to load chat messages:', response.status);
+                    }
+                } catch (error) {
+                    console.error('Error loading chat messages:', error);
+                }
+            }
+            
+            async deleteChat(chatId) {
+                if (confirm('Are you sure you want to delete this chat?')) {
+                    try {
+                        const response = await fetch(`${API_URL}/api/chats/${chatId}`, {
+                            method: 'DELETE',
+                            headers: this.authManager.getHeaders()
+                        });
+                        
+                        if (response.ok) {
+                            delete this.chats[chatId];
+                            
+                            if (this.currentChatId === chatId) {
+                                this.createNewChat();
+                            } else {
+                                this.renderChatHistory();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error deleting chat:', error);
+                    }
+                }
+            }
+            
+            renderChatHistory() {
+                const chatIds = Object.keys(this.chats).sort((a, b) => 
+                    new Date(this.chats[b].updatedAt) - new Date(this.chats[a].updatedAt)
+                );
+                
+                this.chatHistory.innerHTML = '';
+                
+                chatIds.forEach(chatId => {
+                    const chat = this.chats[chatId];
+                    const chatItem = document.createElement('div');
+                    chatItem.className = `chat-item ${chatId === this.currentChatId && !this.isNewChat ? 'active' : ''}`;
+                    
+                    // Get the last message for preview
+                    let preview = 'No messages yet';
+                    
+                    // First try to use the lastMessage from API
+                    if (chat.lastMessage) {
+                        preview = chat.lastMessage.substring(0, 50) + '...';
+                    }
+                    // Fallback to checking loaded messages
+                    else if (chat.messages && chat.messages.length > 0) {
+                        const lastMessage = chat.messages[chat.messages.length - 1];
+                        preview = lastMessage.content.substring(0, 50) + '...';
+                    }
+                    
+                    chatItem.innerHTML = `
+                        <button class="delete-chat" onclick="event.stopPropagation(); chatApp.deleteChat('${chatId}')">×</button>
+                        <div class="chat-item-title">${chat.name}</div>
+                        <div class="chat-item-preview">${preview}</div>
+                        <div class="chat-item-date">${new Date(chat.updatedAt).toLocaleDateString()}</div>
+                    `;
+                    
+                    chatItem.addEventListener('click', () => this.loadChat(chatId));
+                    this.chatHistory.appendChild(chatItem);
+                });
+            }
+            
+            clearMessages() {
+                this.chatMessages.innerHTML = '';
+            }
+            
+            async sendMessage() {
+                const message = this.chatInput.value.trim();
+                if (!message || !this.currentModel) return;
+                
+                // Create chat object if this is a new chat
+                if (this.isNewChat && !this.currentChatId) {
+                    try {
+                        const chatId = 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                        const chatName = message.length > 30 ? message.substring(0, 30) + '...' : message;
+                        console.log('Creating new chat with API_URL:', API_URL);
+                        console.log('Chat data:', { id: chatId, name: chatName, model: this.currentModel });
+                        console.log('Headers:', this.authManager.getHeaders());
+                        
+                        const response = await fetch(`${API_URL}/api/chats`, {
+                            method: 'POST',
+                            headers: this.authManager.getHeaders(),
+                            body: JSON.stringify({
+                                id: chatId,
+                                name: chatName,
+                                model: this.currentModel
+                            })
+                        });
+                        
+                        console.log('Create chat response status:', response.status);
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            console.log('Created chat result:', result);
+                            this.currentChatId = chatId;
+                            this.chats[this.currentChatId] = {
+                                id: this.currentChatId,
+                                name: chatName,
+                                model: this.currentModel,
+                                messages: [],
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString()
+                            };
+                            this.isNewChat = false;
+                            this.chatTitle.textContent = chatName;
+                            this.renderChatHistory();
+                        } else {
+                            const errorText = await response.text();
+                            console.error('Failed to create chat:', response.status, errorText);
+                            throw new Error(`Failed to create chat: ${response.status} ${errorText}`);
+                        }
+                    } catch (error) {
+                        console.error('Error creating chat:', error);
+                        // Fallback to local mode
+                        const chatId = 'chat_' + Date.now();
+                        this.currentChatId = chatId;
+                        this.chats[chatId] = {
+                            id: chatId,
+                            name: 'New Chat',
+                            model: this.currentModel,
+                            messages: [],
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+                        this.isNewChat = false;
+                        this.renderChatHistory();
+                    }
+                }
+                
+                // Check if this is the first message and we need to name the chat
+                const chat = this.chats[this.currentChatId];
+                const isFirstMessage = chat.messages.length === 0;
+                
+                // Clear greeting message if showing
+                if (isFirstMessage) {
+                    this.clearMessages();
+                }
+                
+                // Add user message
+                this.addMessageToChat('user', message);
+                this.displayMessage(message, 'user');
+                this.chatInput.value = '';
+                this.autoResizeTextarea();
+                
+                // Show typing indicator
+                this.showTypingIndicator();
+                
+                try {
+                    // Add timeout for longer requests
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+                    
+                    const response = await fetch(`${this.apiUrl}/api/generate`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: this.currentModel,
+                            prompt: message,
+                            stream: false,
+                            options: {
+                                temperature: 0.7,
+                                top_p: 0.9,
+                                top_k: 40,
+                                repeat_penalty: 1.1
+                            }
+                        }),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const responseInfo = `${(data.total_duration / 1000000000).toFixed(1)}s`;
+                    
+                    this.addMessageToChat('ai', data.response, this.currentModel, responseInfo);
+                    this.displayMessage(data.response, 'ai', null, this.currentModel, responseInfo);
+                    
+                    // Auto-name chat if it's the first message
+                    if (isFirstMessage) {
+                        this.autoNameChat(message);
+                    } else {
+                        // Update chat history display for existing chats
+                        this.renderChatHistory();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error:', error);
+                    let errorMsg = 'Sorry, I encountered an error. Please try again.';
+                    
+                    // Provide more specific error information
+                    if (error.message.includes('Failed to fetch')) {
+                        errorMsg = 'Connection lost to the AI service. Please check if Ollama is running.';
+                    } else if (error.message.includes('timeout')) {
+                        errorMsg = 'Request timed out. The AI might be overloaded - try a simpler request.';
+                    } else if (error.message.includes('500')) {
+                        errorMsg = 'Server error. The AI might be out of memory or overloaded.';
+                    }
+                    
+                    this.addMessageToChat('ai', errorMsg, this.currentModel, 'Error');
+                    this.displayMessage(errorMsg, 'ai', null, this.currentModel, 'Error');
+                    
+                    // Update chat history even on error
+                    this.renderChatHistory();
+                } finally {
+                    this.hideTypingIndicator();
+                }
+            }
+            
+            autoNameChat(firstMessage) {
+                const chat = this.chats[this.currentChatId];
+                const autoName = firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage;
+                chat.name = autoName;
+                this.chatTitle.textContent = autoName;
+                this.saveChats();
+                this.renderChatHistory();
+            }
+            
+            async addMessageToChat(sender, content, model = null, responseInfo = null) {
+                const chat = this.chats[this.currentChatId];
+                const message = {
+                    sender,
+                    content,
+                    timestamp: new Date().toISOString(),
+                    model: model || this.currentModel,
+                    responseInfo: responseInfo
+                };
+                
+                chat.messages.push(message);
+                chat.updatedAt = new Date().toISOString();
+                
+                // Update lastMessage for preview
+                chat.lastMessage = content;
+                
+                // Save to API for all chats that have been successfully created
+                if (this.currentChatId) {
+                    try {
+                        console.log('Saving message to API for chat:', this.currentChatId);
+                        const response = await fetch(`${API_URL}/api/chats/${this.currentChatId}/messages`, {
+                            method: 'POST',
+                            headers: this.authManager.getHeaders(),
+                            body: JSON.stringify({
+                                sender,
+                                content,
+                                model: model || this.currentModel,
+                                response_info: responseInfo
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            console.log('Message saved successfully');
+                        } else {
+                            console.error('Failed to save message:', response.status);
+                        }
+                    } catch (error) {
+                        console.error('Error saving message:', error);
+                    }
+                }
+                
+                this.saveChats();
+            }
+            
+            displayMessage(text, sender, timestamp = null, model = null, responseInfo = null) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}-message`;
+                
+                const timeStr = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                const modelInfo = (sender === 'ai' && model) ? ` • ${model}` : '';
+                const responseInfoStr = (sender === 'ai' && responseInfo) ? ` • ${responseInfo}` : '';
+                
+                // Parse markdown for AI messages, keep plain text for user messages
+                const content = sender === 'ai' ? this.parseMarkdown(text) : text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+                
+                messageDiv.innerHTML = `
+                    <div>${content}</div>
+                    <div class="message-time">${timeStr}${modelInfo}${responseInfoStr}</div>
+                `;
+                
+                this.chatMessages.appendChild(messageDiv);
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+            
+            saveChats() {
+                // Keep local storage for backward compatibility and offline mode
+                localStorage.setItem('ollama-chats', JSON.stringify(this.chats));
+            }
+            
+            updateStatus(message, type = '') {
+                this.status.textContent = message;
+                this.status.className = `status ${type}`;
+            }
+            
+            showTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.id = 'activeTypingIndicator';
+                
+                typingDiv.innerHTML = `
+                    <div class="typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                `;
+                
+                this.chatMessages.appendChild(typingDiv);
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                this.sendButton.disabled = true;
+                this.chatInput.disabled = true;
+            }
+            
+            hideTypingIndicator() {
+                const typingIndicator = document.getElementById('activeTypingIndicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                this.sendButton.disabled = false;
+                this.chatInput.disabled = false;
+            }
+            
+            setLoading(isLoading) {
+                if (isLoading) {
+                    this.typingIndicator.style.display = 'block';
+                    this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+                } else {
+                    this.typingIndicator.style.display = 'none';
+                }
+                this.sendButton.disabled = isLoading;
+                this.chatInput.disabled = isLoading;
+            }
+            
+            // Simple markdown parser
+            parseMarkdown(text) {
+                // Escape HTML first
+                text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                
+                // Headers
+                text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+                text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+                text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+                
+                // Bold and italic
+                text = text.replace(/\*\*\*(.*?)\*\*\*/g, '<strong><em>$1</em></strong>');
+                text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                
+                // Code blocks (triple backticks)
+                text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+                
+                // Inline code
+                text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+                
+                // Links
+                text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+                
+                // Lists
+                text = text.replace(/^\* (.+)$/gm, '<li>$1</li>');
+                text = text.replace(/^- (.+)$/gm, '<li>$1</li>');
+                text = text.replace(/^\+ (.+)$/gm, '<li>$1</li>');
+                text = text.replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>');
+                
+                // Wrap consecutive list items in ul tags
+                text = text.replace(/(<li>.*<\/li>)/gs, function(match) {
+                    const isOrdered = /^\d+\./.test(match);
+                    const tag = isOrdered ? 'ol' : 'ul';
+                    return `<${tag}>${match}</${tag}>`;
+                });
+                
+                // Blockquotes
+                text = text.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+                
+                // Horizontal rules
+                text = text.replace(/^---$/gm, '<hr>');
+                text = text.replace(/^\*\*\*$/gm, '<hr>');
+                
+                // Line breaks and paragraphs
+                text = text.replace(/\n\n/g, '</p><p>');
+                text = text.replace(/\n/g, '<br>');
+                
+                // Wrap in paragraph tags if not already wrapped in block elements
+                if (!text.match(/^<(h[1-6]|ul|ol|blockquote|pre|hr)/)) {
+                    text = '<p>' + text + '</p>';
+                }
+                
+                // Clean up empty paragraphs
+                text = text.replace(/<p><\/p>/g, '');
+                
+                return text;
+            }
+        }
+        
+        // Initialize the chat application
+        let chatApp;
+        let chat; // Global reference for auth manager
+        
+        // Check authentication immediately when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            // Quick authentication check before initializing the app
+            const token = localStorage.getItem('ollama-token');
+            const user = localStorage.getItem('ollama-user');
+            
+            if (!token || !user) {
+                console.log('No authentication credentials found, redirecting to login');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Initialize the app if we have credentials
+            chatApp = new OllamaChat();
+            chat = chatApp; // Make it globally accessible for logout
+        });
+    </script>
+</body>
+</html>

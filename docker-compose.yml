@@ -1,0 +1,75 @@
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11435:11434"
+    environment:
+      - OLLAMA_NO_GPU=1
+      - OLLAMA_ORIGINS=*
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=5m
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    networks:
+      - ollama-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: ollama-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ollama_root_pass
+      MYSQL_DATABASE: ollama_chat
+      MYSQL_USER: ollama_user
+      MYSQL_PASSWORD: ollama_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - ollama_mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - ollama-network
+
+  api:
+    build: ./api
+    container_name: ollama-api
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=ollama_user
+      - DB_PASSWORD=ollama_pass
+      - DB_NAME=ollama_chat
+      - JWT_SECRET=ollama_jwt_secret_key_2025
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    networks:
+      - ollama-network
+
+  web:
+    image: nginx:alpine
+    container_name: ollama-web
+    ports:
+      - "8090:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+      - ./web/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - ollama
+      - api
+    restart: unless-stopped
+    networks:
+      - ollama-network
+
+volumes:
+  ollama_data:
+  ollama_mysql_data:
+
+networks:
+  ollama-network:
+    driver: bridge
