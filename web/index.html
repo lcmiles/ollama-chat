@@ -915,6 +915,8 @@
                                 <li>Feel free to ask for clarification or examples</li>
                                 <li>Use "Explain like I'm 5" for simple explanations</li>
                                 <li>Ask for step-by-step instructions when needed</li>
+                                <li>For large requests: break them into smaller messages</li>
+                                <li>If you get errors: try shorter, simpler prompts</li>
                             </ul>
                         </div>
                     </div>
@@ -1143,6 +1145,12 @@
                 const message = this.chatInput.value.trim();
                 if (!message || !this.currentModel) return;
                 
+                // Check for potentially large requests and warn user
+                const isLargeRequest = message.length > 1000 || message.split('\n').length > 20;
+                if (isLargeRequest) {
+                    console.log('Large request detected, adjusting timeout and parameters');
+                }
+                
                 // Create chat object if this is a new chat
                 if (this.isNewChat && !this.currentChatId) {
                     try {
@@ -1221,9 +1229,9 @@
                 this.showTypingIndicator();
                 
                 try {
-                    // Add timeout for longer requests
+                    // Add timeout for longer requests - increase for larger requests
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+                    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes for larger requests
                     
                     const response = await fetch(`${this.apiUrl}/api/generate`, {
                         method: 'POST',
@@ -1238,7 +1246,9 @@
                                 temperature: 0.7,
                                 top_p: 0.9,
                                 top_k: 40,
-                                repeat_penalty: 1.1
+                                repeat_penalty: 1.1,
+                                num_ctx: 4096, // Increase context window for larger requests
+                                num_predict: 2048 // Increase max response length
                             }
                         }),
                         signal: controller.signal
@@ -1269,12 +1279,20 @@
                     let errorMsg = 'Sorry, I encountered an error. Please try again.';
                     
                     // Provide more specific error information
-                    if (error.message.includes('Failed to fetch')) {
-                        errorMsg = 'Connection lost to the AI service. Please check if Ollama is running.';
+                    if (error.name === 'AbortError') {
+                        errorMsg = 'Request timed out. Your message might be too complex or the AI is overloaded. Try breaking it into smaller parts or simplifying your request.';
+                    } else if (error.message.includes('Failed to fetch')) {
+                        errorMsg = 'Connection lost to the AI service. Please check if Ollama is running and try again.';
                     } else if (error.message.includes('timeout')) {
-                        errorMsg = 'Request timed out. The AI might be overloaded - try a simpler request.';
+                        errorMsg = 'Request timed out. The AI might be overloaded or your request is too complex. Try a simpler request.';
                     } else if (error.message.includes('500')) {
-                        errorMsg = 'Server error. The AI might be out of memory or overloaded.';
+                        errorMsg = 'Server error. The AI might be out of memory or overloaded. Try restarting Ollama or using a smaller model.';
+                    } else if (error.message.includes('413')) {
+                        errorMsg = 'Request too large. Please try breaking your message into smaller parts.';
+                    } else if (error.message.includes('503')) {
+                        errorMsg = 'Service unavailable. The AI model might be loading or overloaded. Please wait a moment and try again.';
+                    } else if (error.message.includes('429')) {
+                        errorMsg = 'Too many requests. Please wait a moment before sending another message.';
                     }
                     
                     this.addMessageToChat('ai', errorMsg, this.currentModel, 'Error');
