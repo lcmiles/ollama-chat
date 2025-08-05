@@ -1231,7 +1231,7 @@
                 try {
                     // Add timeout for longer requests - increase for larger requests
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minutes for larger requests
+                    const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes for larger requests
                     
                     const response = await fetch(`${this.apiUrl}/api/generate`, {
                         method: 'POST',
