@@ -986,9 +986,10 @@
                     this.modelSelect.appendChild(option);
                 });
                 
-                // Set default to first available model
+                // Set default to llama3.2:latest if available, otherwise first available model
                 if (this.models.length > 0) {
-                    this.currentModel = this.models[0].name;
+                    const preferredModel = this.models.find(model => model.name === 'llama3.2:latest');
+                    this.currentModel = preferredModel ? preferredModel.name : this.models[0].name;
                     this.modelSelect.value = this.currentModel;
                     if (this.isNewChat) {
                         this.showGreeting();
