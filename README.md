@@ -1,6 +1,6 @@
 # Ollama Chat
 
-A full-featured web interface for Ollama with user authentication, persistent chat history, and theme management. Built with Docker Compose for easy deployment and scalability.
+A full-featured web interface for Ollama with user authentication and persistent chat history. Built with Docker Compose for easy deployment and scalability.
 
 ## Features
 
