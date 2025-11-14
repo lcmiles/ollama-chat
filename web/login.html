@@ -195,12 +195,19 @@
         </div>
 
         <div class="auth-link">
-            Don't have an account? <a href="register.html">Sign up</a>
+            Don't have an account? <a href="register">Sign up</a>
         </div>
     </div>
 
     <script>
-        const API_URL = window.location.origin.replace(':8090', ':3001');
+        // Use relative URL to work with nginx proxy and Cloudflare tunneling
+        // Get the base path from current location (e.g., /chat or /ollama-chat)
+        const getBasePath = () => {
+            const path = window.location.pathname;
+            const match = path.match(/^\/(chat|ollama-chat)/);
+            return match ? match[0] : '';
+        };
+        const API_URL = window.location.origin + getBasePath();
         
         const loginForm = document.getElementById('loginForm');
         const loginButton = document.getElementById('loginButton');
@@ -261,7 +268,7 @@
                     
                     // Redirect to chat
                     setTimeout(() => {
-                        window.location.href = 'index.html';
+                        window.location.href = './';
                     }, 1000);
                 } else {
                     showAlert(data.error || 'Login failed');
@@ -277,7 +284,7 @@
         // Check if already logged in
         const token = localStorage.getItem('ollama-token');
         if (token) {
-            window.location.href = 'index.html';
+            window.location.href = './';
         }
     </script>
 </body>

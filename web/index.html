@@ -819,12 +819,14 @@
 
     <script>
         // Authentication and API management
-        const getApiUrl = () => {
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            return `${protocol}//${hostname}:3001`;
+        // Use relative URL to work with nginx proxy and Cloudflare tunneling
+        // Get the base path from current location (e.g., /chat or /ollama-chat)
+        const getBasePath = () => {
+            const path = window.location.pathname;
+            const match = path.match(/^\/(chat|ollama-chat)/);
+            return match ? match[0] : '';
         };
-        const API_URL = getApiUrl();
+        const API_URL = window.location.origin + getBasePath();
         
         class AuthManager {
             constructor() {
@@ -846,12 +848,12 @@
             logout() {
                 localStorage.removeItem('ollama-token');
                 localStorage.removeItem('ollama-user');
-                window.location.href = 'login.html';
+                window.location.href = 'login';
             }
             
             async checkAuth() {
                 if (!this.isAuthenticated()) {
-                    window.location.href = 'login.html';
+                    window.location.href = 'login';
                     return false;
                 }
                 
@@ -881,7 +883,8 @@
 
         class OllamaChat {
             constructor() {
-                this.apiUrl = window.location.origin;
+                // Use computed API_URL (includes base path like /chat or /ollama-chat)
+                this.apiUrl = API_URL;
                 this.authManager = new AuthManager();
                 this.currentModel = '';
                 this.currentChatId = null;
@@ -911,7 +914,7 @@
                 // Check authentication first - redirect to login if not authenticated
                 if (!this.authManager.isAuthenticated()) {
                     console.log('User not authenticated, redirecting to login');
-                    window.location.href = 'login.html';
+                    window.location.href = 'login';
                     return;
                 }
                 
@@ -1712,7 +1715,7 @@
             
             if (!token || !user) {
                 console.log('No authentication credentials found, redirecting to login');
-                window.location.href = 'login.html';
+                window.location.href = 'login';
                 return;
             }
             
